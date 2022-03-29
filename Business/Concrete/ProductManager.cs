@@ -9,6 +9,7 @@ using Core.Aspects.Autofac.Performance;
 using Core.Aspects.Autofac.Transaction;
 using Core.Aspects.Autofac.Validation;
 using Core.CrossCuttingConcerns.Logging.Log4Net.Loggers;
+using Core.Aspects.Autofac.Exception;
 using Core.Utilities.Results;
 using DataAccess.Abstract;
 using Entities.Concrete;
@@ -19,16 +20,19 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Core.Utilities.Business;
 
 namespace Business.Concrete
 {
     public class ProductManager : IProductService
     {
-        IProductDal _productDal;
+        private IProductDal _productDal;
+        private ICategoryService _categoryService;
 
-        public ProductManager(IProductDal productDal)
+        public ProductManager(IProductDal productDal, ICategoryService categoryService)
         {
             _productDal = productDal;
+            _categoryService = categoryService;
         }
 
         //Cross Cutting Concerns - Validation, Cache, Log, Performance, Auth, Transaction
@@ -39,6 +43,7 @@ namespace Business.Concrete
         [CacheRemoveAspect("ICategoryService.Get")]
         public IResult Add(Product product)
         {
+            IResult result = BusinessRules.Run(CheckIfProductNameExists(product.ProductName), CheckIfCategoryIsEnabled());
             //Business codes
             _productDal.Add(product);
             return new SuccessResult(Messages.ProductAdded);
@@ -65,7 +70,8 @@ namespace Business.Concrete
         }
 
         //[SecuredOperation("Product.List, Admin")]
-        [LogAspect(typeof(DatabaseLogger))]
+        [LogAspect(typeof(FileLogger))]
+        [ExceptionLogAspect(typeof(FileLogger))]
         //[CacheAspect(10)]
         public IDataResult<List<Product>> GetAllByCategory(int categoryId)
         {
@@ -84,6 +90,30 @@ namespace Business.Concrete
             _productDal.Update(product);
             //_productDal.Add(product);
             return new SuccessResult(Messages.ProductUpdated);
+        }
+
+        //Rules
+        private IResult CheckIfProductNameExists(string productName)
+        {
+
+            var result = _productDal.GetAll(p => p.ProductName == productName).Any();
+            if (result)
+            {
+                return new ErrorResult(Messages.ProductNameAlreadyExists);
+            }
+
+            return new SuccessResult();
+        }
+
+        private IResult CheckIfCategoryIsEnabled()
+        {
+            var result = _categoryService.GetAll();
+            if (result.Data.Count < 10)
+            {
+                return new ErrorResult(Messages.ProductNameAlreadyExists);
+            }
+
+            return new SuccessResult();
         }
     }
 }

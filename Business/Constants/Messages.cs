@@ -27,6 +27,8 @@ namespace Business.Constants
 
         public static string NotEmpty = "Bu alan boş bırakılamaz.";
         public static string CharacterSpacing = "En az 2 ve en fazla 30 karakterden oluşmak zorundadır.";
+
         public static string AuthorizationDenied = "Yetkiniz yok!";
+        public static string ProductNameAlreadyExists = "Ürün ismi zaten mevcut.";
     }
 }
